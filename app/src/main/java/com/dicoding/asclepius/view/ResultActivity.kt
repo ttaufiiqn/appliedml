@@ -21,7 +21,6 @@ class ResultActivity : AppCompatActivity() {
         binding.resultText.text = getString(R.string.prediction_text, result)
         binding.resultText.append("\n" + getString(R.string.confidence_text, confidence * 100))
 
-        // Retrieve the byte array and convert it back to a Bitmap
         val byteArray = intent.getByteArrayExtra("IMAGE")
         byteArray?.let {
             try {
@@ -40,7 +39,7 @@ class ResultActivity : AppCompatActivity() {
             }
         } ?: run {
             Log.e("ResultActivity", "No image data received")
-            // Set a placeholder image if no data
+            // Set a placeholder image if theres no data
             binding.resultImage.setImageResource(R.drawable.ic_place_holder)
         }
     }
