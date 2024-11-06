@@ -29,17 +29,14 @@ class ResultActivity : AppCompatActivity() {
                     binding.resultImage.setImageBitmap(bitmap)
                 } else {
                     Log.e("ResultActivity", "Bitmap is null after decoding")
-                    // Set a placeholder image if decoding fails
                     binding.resultImage.setImageResource(R.drawable.ic_place_holder)
                 }
             } catch (e: Exception) {
                 Log.e("ResultActivity", "Error decoding image: ${e.message}")
-                // Set a placeholder image in case of error
                 binding.resultImage.setImageResource(R.drawable.ic_place_holder)
             }
         } ?: run {
             Log.e("ResultActivity", "No image data received")
-            // Set a placeholder image if theres no data
             binding.resultImage.setImageResource(R.drawable.ic_place_holder)
         }
     }

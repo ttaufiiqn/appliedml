@@ -10,14 +10,23 @@ import android.provider.MediaStore
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.ViewModelProvider
 import com.dicoding.asclepius.databinding.ActivityMainBinding
 import com.dicoding.asclepius.helper.ImageClassifierHelper
+import com.dicoding.asclepius.viewmodel.HomeViewModel
 import org.tensorflow.lite.task.vision.classifier.Classifications
 import java.io.ByteArrayOutputStream
 
 class MainActivity : AppCompatActivity() {
+    companion object {
+        private const val MAX_WIDTH = 300
+        private const val MAX_HEIGHT = 300
+    }
+
     private lateinit var binding: ActivityMainBinding
-    private var currentImageUri: Uri? = null
+    private val viewModel: HomeViewModel by lazy {
+        ViewModelProvider(this)[HomeViewModel::class.java]
+    }
     private lateinit var classifierHelper: ImageClassifierHelper
     private val selectImageMessage = "Please select an image first."
 
@@ -28,6 +37,11 @@ class MainActivity : AppCompatActivity() {
 
         classifierHelper = ImageClassifierHelper(this)
 
+
+        viewModel.currentImageUri?.let { uri -> showImage(uri) }
+        viewModel.resizedBitmap?.let { binding.previewImageView.setImageBitmap(it) }
+
+
         binding.galleryButton.setOnClickListener { startGallery() }
         binding.analyzeButton.setOnClickListener { analyzeImage() }
     }
@@ -35,8 +49,11 @@ class MainActivity : AppCompatActivity() {
     private val galleryLauncher =
         registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
             uri?.let {
-                currentImageUri = it
-                showImage(it)
+                viewModel.currentImageUri = it
+                val bitmap = uriToBitmap(it)
+                val resizedBitmap = resizeBitmap(bitmap)
+                viewModel.resizedBitmap = resizedBitmap
+                binding.previewImageView.setImageBitmap(resizedBitmap)
             }
         }
 
@@ -45,11 +62,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun analyzeImage() {
-        currentImageUri?.let { uri ->
-            val bitmap = uriToBitmap(uri)
+        viewModel.resizedBitmap?.let { bitmap ->
             val results = classifierHelper.classifyImage(bitmap)
-            moveToResult(results)
-        } ?: showToast()
+            if (results != null) moveToResult(results) else showToast("Classification failed.")
+        } ?: showToast(selectImageMessage)
     }
 
     private fun uriToBitmap(imageUri: Uri): Bitmap {
@@ -62,14 +78,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun resizeBitmap(bitmap: Bitmap, maxWidth: Int, maxHeight: Int): Bitmap {
+    private fun resizeBitmap(bitmap: Bitmap): Bitmap {
         val width = bitmap.width
         val height = bitmap.height
-
-        val scale = (maxWidth.toFloat() / width).coerceAtMost(maxHeight.toFloat() / height)
+        val scale = (MAX_WIDTH.toFloat() / width).coerceAtMost(MAX_HEIGHT.toFloat() / height)
         val newWidth = (scale * width).toInt()
         val newHeight = (scale * height).toInt()
-
         return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
     }
 
@@ -79,33 +93,21 @@ class MainActivity : AppCompatActivity() {
             putExtra("RESULTS", category.label)
             putExtra("CONFIDENCE", category.score)
 
-            currentImageUri?.let { uri ->
-                val bitmap = uriToBitmap(uri)
-
-                bitmap.let {
-                    // Optionally determine size based on screen dimensions or other logic
-                    val screenWidth = resources.displayMetrics.widthPixels
-                    val screenHeight = resources.displayMetrics.heightPixels
-
-                    // Resize Bitmap based on current screen size
-                    val resizedBitmap = resizeBitmap(it, screenWidth / 2, screenHeight / 2)
-                    val stream = ByteArrayOutputStream()
-                    resizedBitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
-                    val byteArray = stream.toByteArray()
-                    putExtra("IMAGE", byteArray)
-                }
+            viewModel.resizedBitmap?.let { bitmap ->
+                val stream = ByteArrayOutputStream()
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 50, stream)
+                val byteArray = stream.toByteArray()
+                putExtra("IMAGE", byteArray)
             }
         }
         startActivity(intent)
     }
 
-
     private fun showImage(uri: Uri) {
         binding.previewImageView.setImageURI(uri)
     }
 
-    private fun showToast() {
-        Toast.makeText(this, selectImageMessage, Toast.LENGTH_SHORT).show()
+    private fun showToast(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
-
 }
